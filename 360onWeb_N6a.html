@@ -109,4 +109,113 @@
     };
 
     // ★ N6版の高度な計算ロジックを完全再現
-    function render()
+    function render() {
+        if (!originalImage) return;
+        const w = canvas.width, h = canvas.height;
+        const outData = ctx.createImageData(w, h);
+        const inData = workCtx.getImageData(0, 0, workCanvas.width, workCanvas.height);
+        
+        // 軽量化: 操作中は4ピクセル飛ばし
+        const step = isMovingCenter ? 4 : 1;
+
+        for (let y = 0; y < h; y += step) {
+            for (let x = 0; x < w; x += step) {
+                let nx = (x / w) * 2 - 1;
+                let ny = (y / h) * 2 - 1;
+
+                // Power効果
+                let r = Math.sqrt(nx*nx + ny*ny);
+                if (r > 0) {
+                    let newR = Math.pow(r, params.power);
+                    nx = (nx / r) * newR; ny = (ny / r) * newR;
+                }
+
+                // Swirl(渦巻き)効果
+                if (Math.abs(params.swirl) > 0.01) {
+                    let angle = Math.atan2(ny, nx) + params.swirl * Math.PI * (1.0 - r);
+                    nx = r * Math.cos(angle); ny = r * Math.sin(angle);
+                }
+
+                // Shift & Zoom & Rotate
+                let u = nx / params.scale + params.centerX;
+                let v = ny / params.scale + params.centerY;
+                let fAngle = Math.atan2(v, u) + params.yaw;
+                let fR = Math.sqrt(u*u + v*v);
+                u = fR * Math.cos(fAngle); v = fR * Math.sin(fAngle);
+
+                // 360度逆投影計算
+                let lon = Math.atan2(u, 1.0);
+                let lat = Math.atan2(v, Math.sqrt(u*u + 1.0));
+                let sx = ((lon / Math.PI) + 1.0) / 2.0 * workCanvas.width;
+                let sy = ((lat / (Math.PI/2)) + 1.0) / 2.0 * workCanvas.height;
+
+                let si = (Math.floor(sy) * workCanvas.width + Math.floor(sx)) * 4;
+                
+                // stepサイズ分の描画処理
+                for (let i = 0; i < step; i++) {
+                    for (let j = 0; j < step; j++) {
+                        if (y+i < h && x+j < w) {
+                            let oi = ((y+i) * w + (x+j)) * 4;
+                            outData.data[oi] = inData.data[si];
+                            outData.data[oi+1] = inData.data[si+1];
+                            outData.data[oi+2] = inData.data[si+2];
+                            outData.data[oi+3] = 255;
+                        }
+                    }
+                }
+            }
+        }
+        ctx.putImageData(outData, 0, 0);
+    }
+
+    // スライダー連動
+    ['scale', 'centerX', 'centerY', 'yaw', 'swirl', 'power'].forEach(id => {
+        document.getElementById(id).oninput = (e) => {
+            params[id] = parseFloat(e.target.value);
+            document.getElementById('v_' + id).innerText = params[id].toFixed(2);
+            render();
+        };
+    });
+
+    // 3本指操作
+    canvas.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 3) {
+            e.preventDefault(); isMovingCenter = true;
+            const t = e.touches;
+            lastTouchX = (t[0].pageX + t[1].pageX + t[2].pageX) / 3;
+            lastTouchY = (t[0].pageY + t[1].pageY + t[2].pageY) / 3;
+        }
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+        if (isMovingCenter && e.touches.length === 3) {
+            e.preventDefault();
+            const t = e.touches;
+            const curX = (t[0].pageX + t[1].pageX + t[2].pageX) / 3;
+            const curY = (t[0].pageY + t[1].pageY + t[2].pageY) / 3;
+
+            params.centerX -= (curX - lastTouchX) / (canvas.clientWidth / 2);
+            params.centerY -= (curY - lastTouchY) / (canvas.clientHeight / 2);
+            
+            document.getElementById('centerX').value = params.centerX;
+            document.getElementById('centerY').value = params.centerY;
+            document.getElementById('v_centerX').innerText = params.centerX.toFixed(2);
+            document.getElementById('v_centerY').innerText = params.centerY.toFixed(2);
+
+            lastTouchX = curX; lastTouchY = curY;
+            render();
+        }
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', () => { if (isMovingCenter) { isMovingCenter = false; render(); } });
+
+    // 4K保存
+    document.getElementById('downloadBtn').onclick = () => {
+        const link = document.createElement('a');
+        link.download = 'n6_export.png';
+        link.href = canvas.toDataURL();
+        link.click();
+    };
+</script>
+</body>
+</html>
