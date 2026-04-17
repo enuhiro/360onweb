@@ -4,7 +4,7 @@
  * 
  * @description 360イメージを編集するWebアプリケーション（指数関数効果付き + 画像の2D回転 + 編集余白10%）
  * @author いけだじゅんじ (enhanced by Claude, updated by ChatGPT)
- * @version 1k edit1k save4k Clear D&D XYmove + Exponential Effect + ImageRotate2D (Order: Effects → Shift → 2D Rotate)
+ * @version 1k edit1k save4k Clear D&D XYmove + Exponential Effect + ImageRotate2D (Order: Effects → Shift → 2D Rotate) + XY slider on mobile
  * @date 20250812 
  * @license Public Domain - 再配布、改変自由、一切の制限なし
  * @disclaimer 
@@ -878,11 +878,9 @@ document.getElementById('guidelineRotateBtn').addEventListener('click', function
 //            });
                         
             
-            const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-            if (!isTouchDevice) {
-                document.getElementById('centerXGroup').style.display = 'block';
-                document.getElementById('centerYGroup').style.display = 'block';
-            }
+            // X/Y shift: スマホ・PC両方で表示
+            document.getElementById('centerXGroup').style.display = 'block';
+            document.getElementById('centerYGroup').style.display = 'block';
         });
 
         function showLoading(text) {
@@ -1413,6 +1411,10 @@ else if (slider === swirlSlider) tempSwirl = newValue; // ★ 追加 20250817++ 
 
                 centerOffsetX = Math.max(-1, Math.min(1, centerOffsetX));
                 centerOffsetY = Math.max(-1, Math.min(1, centerOffsetY));
+
+                // スライダーと表示値を同期
+                if (centerXSlider) { centerXSlider.value = -centerOffsetX; centerXValue.textContent = (-centerOffsetX).toFixed(2); }
+                if (centerYSlider) { centerYSlider.value = centerOffsetY; centerYValue.textContent = centerOffsetY.toFixed(2); }
 
                 lastTouchX = touch.clientX;
                 lastTouchY = touch.clientY;
